@@ -1,0 +1,60 @@
+---
+import '../styles/global.css';
+---
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>yukNgaji Siswa — Masuk</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+</head>
+<body>
+  <main class="phone" style="background: var(--parchment);">
+    <div class="flex-1 flex flex-col items-center justify-center px-7 text-center">
+      <div class="w-20 h-20 rounded-[var(--r-xl)] flex items-center justify-center text-4xl mb-5"
+        style="background: var(--accent-soft); border: 1px solid var(--hairline);">📗</div>
+      <h1 class="text-3xl font-bold" style="color: var(--ink); letter-spacing: var(--tracking-tight);">yukNgaji</h1>
+      <p class="text-[15px] mt-1.5 mb-8" style="color: var(--ink-secondary);">Masuk pakai namamu sendiri</p>
+
+      <form id="loginForm" class="w-full max-w-sm space-y-3">
+        <input id="username" type="text" autocomplete="off" autocapitalize="none" placeholder="Nama depan (mis. ica)" class="field" />
+        <input id="password" type="password" placeholder="Password (mis. ica123)" class="field" />
+        <p id="err" class="text-[var(--danger)] text-xs font-semibold min-h-[16px] text-left px-1"></p>
+        <button id="submitBtn" type="submit" class="btn btn-primary w-full">Masuk</button>
+      </form>
+    </div>
+    <p class="text-[11px] text-center pb-7" style="color: var(--ink-tertiary);">Lupa password? Hubungi Kak Aziz.</p>
+  </main>
+
+  <script>
+    import { api, setSession, getToken, logError } from '../lib/api.js';
+    if (getToken()) location.href = '/chats';
+
+    const form = document.getElementById('loginForm');
+    const err = document.getElementById('err');
+    const btn = document.getElementById('submitBtn');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      err.textContent = '';
+      const username = document.getElementById('username').value.trim();
+      const password = document.getElementById('password').value;
+      if (!username || !password) { err.textContent = 'Isi nama dan password dulu.'; return; }
+      btn.disabled = true; btn.textContent = 'Memeriksa...';
+      try {
+        const res = await api('/api/student/login', { method: 'POST', body: { username, password } });
+        setSession(res.data.token, { student_id: res.data.student_id, name: res.data.name });
+        location.href = '/chats';
+      } catch (ex) {
+        // Error → inline message + console (TIDAK ke toast).
+        logError('Login gagal', ex.message);
+        err.textContent = ex.message || 'Gagal masuk.';
+        btn.disabled = false; btn.textContent = 'Masuk';
+      }
+    });
+  </script>
+</body>
+</html>

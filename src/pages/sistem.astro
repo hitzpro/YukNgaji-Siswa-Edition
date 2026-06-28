@@ -1,0 +1,803 @@
+---
+import '../styles/global.css';
+---
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>Asisten Sistem</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <!-- SortableJS untuk soal tipe 'urutan' (drag mengurutkan) -->
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js" defer></script>
+  <!-- Confetti untuk rekap nilai -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js" defer></script>
+  <style>
+    .ar-text { font-family: 'Scheherazade New','Amiri',serif; font-size: 1.25em; direction: rtl; }
+    .blank-slot { display:inline-block; min-width:64px; height:30px; border-bottom:2px dashed var(--accent); background:var(--accent-soft); margin:0 4px; text-align:center; font-weight:800; color:var(--accent-strong); vertical-align:middle; cursor:pointer; line-height:30px; padding:0 6px; border-radius:6px 6px 0 0; font-size:13px; }
+    .sortable-ghost { opacity:.4; }
+  </style>
+</head>
+<body>
+  <main class="phone">
+    <!-- Header -->
+    <header class="appbar flex items-center gap-3 px-3 py-2.5">
+      <a href="/chats" class="text-2xl px-1 leading-none active:opacity-70" style="color: var(--accent);"><i class="fa-solid fa-chevron-left"></i></a>
+      <div class="w-9 h-9 rounded-full flex items-center justify-center" style="background: var(--accent-soft); color: var(--accent);"><i class="fa-solid fa-robot"></i></div>
+      <div class="flex-1">
+        <div class="font-semibold text-[15px] leading-tight" style="color: var(--ink);">Asisten Sistem</div>
+        <div class="text-[11px]" style="color: var(--ink-secondary);">Selalu siap membantu</div>
+      </div>
+      <button id="btnNotif" class="relative w-10 h-10 rounded-full flex items-center justify-center active:scale-95 transition" style="color: var(--accent);">
+        <i class="fa-solid fa-bell text-lg"></i>
+        <span id="notifDot" class="hidden absolute top-1.5 right-1.5 min-w-[16px] h-4 px-1 rounded-full text-[10px] font-bold text-white flex items-center justify-center" style="background: var(--danger);">0</span>
+      </button>
+    </header>
+
+    <!-- Thread -->
+    <div id="thread" class="flex-1 overflow-y-auto no-scrollbar px-3 py-4 space-y-2" style="background: var(--chat-bg);"></div>
+
+    <!-- Quick replies -->
+    <footer class="border-t border-[var(--hairline)] bg-white p-3 flex flex-wrap gap-2" id="chips"></footer>
+  </main>
+
+  <!-- ===== Drawer soal (full-screen) ===== -->
+  <div id="drawer" class="fixed inset-0 z-50 hidden bg-white flex-col" style="max-width:480px; margin:0 auto;">
+    <header class="appbar flex items-center gap-3 px-3 py-2.5 shrink-0">
+      <button id="drawerClose" class="text-xl px-1 active:opacity-70" style="color: var(--accent);"><i class="fa-solid fa-xmark"></i></button>
+      <div class="flex-1">
+        <div id="drawerTitle" class="font-semibold text-[15px] leading-tight" style="color: var(--ink);">Mengerjakan…</div>
+        <div class="text-[11px]" style="color: var(--ink-secondary);">Jawab dengan jujur ya 🤲</div>
+      </div>
+      <div id="drawerTimer" class="px-3 py-1 rounded-full font-mono font-bold text-sm" style="background: var(--surface-sunken); color: var(--ink);">--:--</div>
+    </header>
+
+    <!-- bar koin + double nilai -->
+    <div class="flex items-center justify-between px-3 py-2 border-b border-[var(--hairline)] shrink-0 text-[12px]" style="background: var(--pearl);">
+      <span style="color: var(--ink-secondary);"><i class="fa-solid fa-coins" style="color: var(--warning);"></i> <b id="coinBal" style="color: var(--ink);">0</b> koin</span>
+      <button id="btnDouble" class="px-3 py-1.5 rounded-full font-bold" style="background: var(--accent-soft); color: var(--accent-strong); border: 1px solid var(--accent);"><i class="fa-solid fa-wand-magic-sparkles"></i> Double Nilai (50)</button>
+    </div>
+
+    <!-- penawaran +30 detik -->
+    <div id="lowTime" class="hidden px-3 py-2 shrink-0 text-[12px] flex items-center justify-between" style="background: var(--warning-soft); border-bottom: 1px solid var(--warning); color: var(--warning);">
+      <span><i class="fa-solid fa-hourglass-half"></i> Waktu hampir habis!</span>
+      <button id="btnAddTime" class="px-3 py-1.5 rounded-full font-bold text-white" style="background: var(--warning);">+30 detik (100)</button>
+    </div>
+
+    <div class="flex-1 relative overflow-hidden">
+      <div id="qList" class="absolute inset-0 overflow-y-auto no-scrollbar px-3 py-4 space-y-4"></div>
+      <!-- Lobby: siap mengerjakan (timer baru jalan setelah klik Mulai) -->
+      <div id="lobby" class="absolute inset-0 z-20 flex flex-col items-center justify-center text-center px-8" style="background: var(--canvas);">
+        <div class="w-20 h-20 rounded-[var(--r-xl)] flex items-center justify-center text-4xl mb-4" style="background: var(--accent-soft); color: var(--accent);"><i class="fa-solid fa-pen-to-square"></i></div>
+        <div class="text-xl font-bold" style="color: var(--ink);">Siap mengerjakan?</div>
+        <div id="lobbySub" class="caption mt-1.5 mb-6"></div>
+        <button id="btnStart" class="btn btn-primary !px-10 !py-3 text-[15px]"><i class="fa-solid fa-play"></i> Mulai</button>
+        <div class="caption mt-3" style="color: var(--ink-tertiary);">Aktifkan item di atas dulu kalau mau ✨</div>
+      </div>
+    </div>
+
+    <footer id="drawerFooter" class="border-t border-[var(--hairline)] bg-white p-3 shrink-0 hidden">
+      <div class="flex items-center gap-2">
+        <button id="btnPrev" class="btn btn-secondary !px-4 !py-3"><i class="fa-solid fa-chevron-left"></i></button>
+        <span id="qCounter" class="text-[12px] font-bold shrink-0" style="color:var(--ink-secondary);min-width:42px;text-align:center;">1/6</span>
+        <button id="btnNext" class="btn btn-primary flex-1 !py-3 text-[15px]">Selanjutnya <i class="fa-solid fa-chevron-right"></i></button>
+      </div>
+    </footer>
+  </div>
+
+  <!-- ===== Panel Notifikasi (drawer dari kanan) ===== -->
+  <div id="notifPanel" class="fixed inset-0 z-[60] hidden">
+    <div id="notifOverlay" class="absolute inset-0" style="background: rgba(0,0,0,0.35);"></div>
+    <div class="absolute top-0 right-0 h-full w-full flex flex-col" style="max-width:480px; margin:0 auto; left:0;">
+      <div class="absolute top-0 right-0 h-full w-[86%] max-w-[360px] bg-[var(--canvas)] flex flex-col shadow-[var(--shadow-pop)]" id="notifSheet" style="transform:translateX(100%); transition:transform .26s cubic-bezier(.32,.72,0,1);">
+        <header class="appbar flex items-center gap-3 px-4 py-3.5 shrink-0">
+          <i class="fa-solid fa-bell" style="color: var(--accent);"></i>
+          <div class="flex-1 font-semibold" style="color: var(--ink);">Notifikasi</div>
+          <button id="notifClose" class="text-xl active:opacity-70" style="color: var(--ink-secondary);"><i class="fa-solid fa-xmark"></i></button>
+        </header>
+        <div id="notifList" class="flex-1 overflow-y-auto no-scrollbar p-3 space-y-2.5"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    import { requireAuth, getStudent, api, toast, logError, logWarn, modal, showTyping, ensureSession, getSelfieBlob } from '../lib/api.js';
+    requireAuth(); ensureSession();
+    const me = getStudent();
+
+    const thread = document.getElementById('thread');
+    const chips = document.getElementById('chips');
+    const SUBJ = { tajwid:'Tajwid', fiqih:'Fiqih', tauhid:'Tauhid' };
+    const esc = (s) => (s==null?'':String(s)).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+    const fmtDeadline = (s) => s ? new Date(s).toLocaleString('id-ID',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}) : null;
+    const scrollDown = () => { thread.scrollTop = thread.scrollHeight; };
+
+    function botBubble(html) {
+      const d = document.createElement('div');
+      d.className = 'flex justify-start';
+      d.innerHTML = `<div class="bubble bubble-in">${html}</div>`;
+      thread.appendChild(d); scrollDown();
+    }
+    function botNode(node) {
+      const d = document.createElement('div');
+      d.className = 'flex justify-start';
+      const b = document.createElement('div');
+      b.className = 'bubble bubble-in'; b.style.maxWidth = '100%';
+      b.appendChild(node); d.appendChild(b);
+      thread.appendChild(d); scrollDown();
+    }
+    function userBubble(text) {
+      const d = document.createElement('div');
+      d.className = 'flex justify-end';
+      d.innerHTML = `<div class="bubble bubble-out text-[14px]">${esc(text)}</div>`;
+      thread.appendChild(d); scrollDown();
+    }
+
+    const CHIPS = [
+      { label: 'Tugas yang belum', icon: 'fa-list-check', action: 'pending' },
+      { label: 'Telat deadline',   icon: 'fa-clock',      action: 'late' },
+      { label: 'Minta izin',       icon: 'fa-hand',       action: 'izin' },
+    ];
+    chips.innerHTML = CHIPS.map(c =>
+      `<button data-action="${c.action}" class="chip" style="border-color:var(--accent);color:var(--accent-strong);"><i class="fa-solid ${c.icon}"></i> ${c.label}</button>`
+    ).join('');
+    let chipBusy = false;
+    const setChipsDisabled = (v) => chips.querySelectorAll('button').forEach(b => b.disabled = v);
+    chips.addEventListener('click', e => {
+      const btn = e.target.closest('button[data-action]'); if (!btn) return;
+      if (chipBusy) return;                    // cegah spam klik berkali-kali
+      handleChip(btn.dataset.action, btn.textContent.trim());
+    });
+
+    // ---- Carousel tugas: 1 kartu, prev/next, filter mapel & minggu, border status ----
+    const STATUS_LABEL = { belum:'Belum dikerjakan', telat:'Telat deadline', izin:'Minta izin' };
+    const STATUS_ICON  = { belum:'fa-circle-check', telat:'fa-triangle-exclamation', izin:'fa-hand' };
+    const STATUS_COLOR = { belum:'#16a34a', telat:'#e5484d', izin:'#c97a17' };
+    function taskBrowser(allTasks, mode) {
+      let fSubject = 'all', fWeek = 'all', idx = 0;
+      const subjects = [...new Set(allTasks.map(t => t.subject))];
+      const weeks = [...new Set(allTasks.map(t => t.week))].sort((a,b)=>a-b);
+      const wrap = document.createElement('div');
+      wrap.style.width = '290px'; wrap.style.maxWidth = '100%';
+      const statusOf = (t) => mode==='izin' ? 'izin' : (t.late ? 'telat' : 'belum');
+      const filtered = () => allTasks.filter(t =>
+        (fSubject==='all'||t.subject===fSubject) && (fWeek==='all'||String(t.week)===String(fWeek)));
+
+      function render() {
+        const list = filtered();
+        if (idx >= list.length) idx = Math.max(0, list.length-1);
+        const t = list[idx];
+        const subjOpts = `<option value="all">Semua Mapel</option>` + subjects.map(s=>`<option value="${s}" ${fSubject===s?'selected':''}>${SUBJ[s]||s}</option>`).join('');
+        const weekOpts = `<option value="all">Semua Minggu</option>` + weeks.map(w=>`<option value="${w}" ${String(fWeek)===String(w)?'selected':''}>Pertemuan ${w}</option>`).join('');
+
+        let cardHtml;
+        if (!t) {
+          cardHtml = `<div class="task-card p-5 text-center"><div class="text-4xl mb-2" style="color:var(--ink-tertiary)"><i class="fa-regular fa-face-smile"></i></div><div class="caption">Tidak ada tugas untuk filter ini.</div></div>`;
+        } else {
+          const st = statusOf(t); const dl = fmtDeadline(t.deadline_at);
+          const col = STATUS_COLOR[st];
+          const done = mode !== 'izin' && isDone(t.subject, t.week);
+          const actBtn = done
+            ? `<div class="task-done"><i class="fa-solid fa-circle-check" style="color:#16a34a"></i> Telah dikerjakan</div>`
+            : mode==='izin'
+              ? `<button data-izin class="btn btn-warning w-full mt-3 !py-2.5 text-[14px]">Minta Izin</button>`
+              : `<button data-do class="btn btn-primary w-full mt-3 !py-2.5 text-[14px]">Kerjakan Sekarang</button>`;
+          cardHtml = `<div class="task-card status-${st} p-4">
+            <div class="flex items-center justify-between mb-2">
+              <span class="badge" style="background:${col}1a;color:${col};font-size:0.7rem;">${STATUS_LABEL[st]}</span>
+              <span class="text-[11px] font-bold" style="color:var(--ink-tertiary)">${idx+1}/${list.length}</span>
+            </div>
+            <div class="text-[18px] font-bold" style="color:var(--ink);letter-spacing:var(--tracking-tight);">${SUBJ[t.subject]||t.subject} · Pertemuan ${t.week}</div>
+            ${dl ? `<div class="text-[12px] mt-1" style="color:var(--ink-tertiary)">Deadline: ${dl}</div>` : ''}
+            ${actBtn}
+          </div>`;
+        }
+
+        wrap.innerHTML = `
+          <div class="flex gap-2 mb-3">
+            <div class="select-wrap"><span class="select-label">Mapel</span><select data-f="subject">${subjOpts}</select></div>
+            <div class="select-wrap"><span class="select-label">Minggu</span><select data-f="week">${weekOpts}</select></div>
+          </div>
+          ${cardHtml}
+          <div class="flex items-center justify-between mt-3">
+            <button class="btn-icon" data-nav="prev" ${idx<=0?'disabled':''}><i class="fa-solid fa-chevron-left"></i></button>
+            <span class="text-[12px] font-bold" style="color:var(--ink-secondary)">${list.length} tugas</span>
+            <button class="btn-icon" data-nav="next" ${idx>=list.length-1?'disabled':''}><i class="fa-solid fa-chevron-right"></i></button>
+          </div>`;
+
+        wrap.querySelector('[data-f="subject"]').addEventListener('change', e => { fSubject=e.target.value; idx=0; render(); });
+        wrap.querySelector('[data-f="week"]').addEventListener('change', e => { fWeek=e.target.value; idx=0; render(); });
+        wrap.querySelector('[data-nav="prev"]').addEventListener('click', () => { if(idx>0){idx--;render();} });
+        wrap.querySelector('[data-nav="next"]').addEventListener('click', () => { if(idx<filtered().length-1){idx++;render();} });
+        const doBtn = wrap.querySelector('[data-do]'); if (doBtn) doBtn.addEventListener('click', () => openDrawer(t.subject, t.week));
+        const izinBtn = wrap.querySelector('[data-izin]'); if (izinBtn) izinBtn.addEventListener('click', () => requestIzin(t, izinBtn));
+      }
+      render();
+      activeBrowserRerender = render;  // biar bisa di-refresh saat tugas selesai
+      return wrap;
+    }
+
+    async function requestIzin(t, btn) {
+      const reason = await modal({ type:'warning', title:'Minta Izin / Perpanjangan',
+        message:`${SUBJ[t.subject]||t.subject} · Pertemuan ${t.week}. Tulis alasanmu untuk Kak Aziz:`,
+        input:true, placeholder:'Contoh: sakit, ada acara keluarga…', confirmText:'Kirim', cancelText:'Batal' });
+      if (reason === null) return;
+      btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Mengirim…';
+      try {
+        await api('/api/onboarding/pr-extension-request', { method:'POST', body:{ student_id: me.student_id, subject:t.subject, week:t.week, reason, kind:'late' }});
+        toast('Permintaan izin terkirim ke Kak Aziz', 'success');
+        btn.innerHTML = '<i class="fa-solid fa-check"></i> Terkirim';
+        btn.classList.remove('btn-warning'); btn.style.cssText = 'background:var(--surface-sunken);color:var(--ink-secondary);';
+      } catch (ex) {
+        logError('Gagal minta izin', ex.message);
+        btn.disabled=false; btn.innerHTML='<i class="fa-solid fa-paper-plane"></i> Minta Izin';
+        modal({ type:'danger', title:'Gagal mengirim', message: ex.message || 'Coba lagi ya.', confirmText:'OK' });
+      }
+    }
+
+    async function handleChip(action, label) {
+      chipBusy = true; setChipsDisabled(true);
+      userBubble(label);
+      const stopTyping = showTyping(thread);
+      try {
+        const res = await api('/api/student/tasks');
+        await new Promise(r => setTimeout(r, 400)); // jeda kecil biar typing kebaca
+        let tasks = res.data || [];
+        if (action === 'late') tasks = tasks.filter(t => t.late);
+        // Sudah pernah minta izin (pending/granted) → jangan tampilkan lagi di menu izin.
+        if (action === 'izin') tasks = tasks.filter(t => (t.izin_status || 'none') === 'none');
+        if (!tasks.length) {
+          botBubble(action==='late' ? 'Tidak ada tugas yang telat. Mantap! 🎉'
+            : action==='izin' ? 'Tidak ada tugas yang bisa dimintakan izin. Mungkin kamu sudah minta semua, cek menu Notifikasi ya. 🔔'
+            : 'Semua tugas sudah kamu kerjakan. Keren! 🎉');
+          return;
+        }
+        const intro = action==='late' ? 'Ini tugas yang sudah lewat deadline:'
+          : action==='izin' ? 'Pilih tugas yang mau kamu mintakan izin:'
+          : 'Ini tugas yang belum kamu kerjakan:';
+        botBubble(intro);
+        botNode(taskBrowser(tasks, action==='izin' ? 'izin' : 'do'));
+      } catch (ex) {
+        logError('Gagal memuat data', ex.message);
+        botBubble('Maaf, gagal memuat data. Coba lagi sebentar ya.');
+      } finally {
+        stopTyping();
+        chipBusy = false; setChipsDisabled(false);
+      }
+    }
+
+    // ---- Notifikasi izin: polling tiap 30 detik, muncul sebagai bubble info ----
+    const NOTIF_SEEN_KEY = 'siswa_notif_seen';
+    const getSeen = () => { try { return new Set(JSON.parse(localStorage.getItem(NOTIF_SEEN_KEY) || '[]')); } catch { return new Set(); } };
+    const markSeen = (key) => { const s = getSeen(); s.add(key); localStorage.setItem(NOTIF_SEEN_KEY, JSON.stringify([...s])); };
+
+    function notifBubble(n) {
+      const until = fmtDeadline(n.until);
+      const penalty = n.with_penalty
+        ? ` Tapi ada potongan nilai <b>${n.penalty_percent}%</b> ya.`
+        : ' Tanpa potongan nilai.';
+      const d = document.createElement('div');
+      d.className = 'flex justify-start';
+      const b = document.createElement('div');
+      b.className = 'bubble bubble-in';
+      b.style.borderLeft = '3px solid #0066cc';
+      b.innerHTML = `
+        <div class="text-[13.5px] leading-relaxed" style="color:var(--ink)">
+          <i class="fa-solid fa-bell" style="color:#0066cc"></i> <b>Kak Aziz sudah memberi izin!</b><br>
+          Kamu boleh mengerjakan <b>${SUBJ[n.subject]||n.subject} · Pertemuan ${n.week}</b>${until ? ` sampai <b>${until}</b>` : ''}.${penalty}
+        </div>
+        <button data-do class="btn btn-primary w-full mt-2 !py-2 text-[13px]">Kerjakan Sekarang</button>`;
+      b.querySelector('[data-do]').addEventListener('click', () => openDrawer(n.subject, n.week));
+      d.appendChild(b); thread.appendChild(d); scrollDown();
+    }
+
+    function setNotifDot(notifs) {
+      const active = (notifs || []).filter(n => !n.done && !n.expired).length;
+      const dot = document.getElementById('notifDot');
+      if (active > 0) { dot.textContent = active; dot.classList.remove('hidden'); }
+      else dot.classList.add('hidden');
+    }
+
+    async function pollNotifications() {
+      try {
+        const res = await api('/api/student/notifications');
+        const notifs = res.data || [];
+        setNotifDot(notifs);
+        const seen = getSeen();
+        notifs.forEach(n => {
+          const key = `${n.subject}|${n.week}|${n.until}`;
+          if (seen.has(key)) return;
+          // Done/expired: tandai terlihat diam-diam (tak perlu diberitahu lagi).
+          if (n.done || n.expired) { markSeen(key); return; }
+          // Izin aktif & belum pernah ditampilkan → munculkan bubble info sekali.
+          notifBubble(n);
+          markSeen(key);
+        });
+      } catch (ex) { logWarn('Gagal cek notifikasi', ex.message); }
+    }
+
+    // ---- Panel notifikasi (bell di header) ----
+    function notifCardEl(n) {
+      const until = fmtDeadline(n.until);
+      const c = n.done ? '#16a34a' : n.expired ? '#9ca3af' : '#0066cc';
+      const status = n.done ? '<span style="color:#16a34a"><i class="fa-solid fa-check"></i> Sudah dikerjakan</span>'
+        : n.expired ? '<span style="color:var(--ink-tertiary)">Waktu tambahan habis</span>'
+        : `<button data-do class="btn btn-primary w-full mt-2 !py-2 text-[13px]">Kerjakan Sekarang</button>`;
+      const penalty = n.with_penalty ? `Ada potongan nilai ${n.penalty_percent}%` : 'Tanpa potongan nilai';
+      const card = document.createElement('div');
+      card.className = 'task-card p-3.5'; card.style.borderColor = c;
+      card.innerHTML = `
+        <div class="badge mb-1.5" style="background:${c}1a;color:${c};font-size:0.7rem;"><i class="fa-solid fa-bell"></i> Izin disetujui</div>
+        <div class="font-bold text-[15px]" style="color:var(--ink)">${SUBJ[n.subject]||n.subject} · Pertemuan ${n.week}</div>
+        ${until ? `<div class="caption mt-0.5">Kerjakan sebelum: <b>${until}</b></div>` : ''}
+        <div class="caption">${penalty}</div>
+        <div class="mt-1 text-[13px]">${status}</div>`;
+      const btn = card.querySelector('[data-do]');
+      if (btn) btn.addEventListener('click', () => { closeNotifPanel(); openDrawer(n.subject, n.week); });
+      return card;
+    }
+
+    const notifPanel = document.getElementById('notifPanel');
+    const notifSheet = document.getElementById('notifSheet');
+    function closeNotifPanel() {
+      notifSheet.style.transform = 'translateX(100%)';
+      setTimeout(() => notifPanel.classList.add('hidden'), 260);
+    }
+    async function openNotifPanel() {
+      notifPanel.classList.remove('hidden');
+      requestAnimationFrame(() => { notifSheet.style.transform = 'translateX(0)'; });
+      const list = document.getElementById('notifList');
+      list.innerHTML = '<p class="caption text-center py-6">Memuat…</p>';
+      try {
+        const res = await api('/api/student/notifications');
+        const notifs = res.data || [];
+        setNotifDot(notifs);
+        if (!notifs.length) { list.innerHTML = '<p class="caption text-center py-8">Belum ada notifikasi.<br>Notif izin dari Kak Aziz akan muncul di sini.</p>'; return; }
+        list.innerHTML = '';
+        notifs.forEach(n => list.appendChild(notifCardEl(n)));
+      } catch (ex) { logWarn('Gagal memuat notifikasi', ex.message); list.innerHTML = '<p class="caption text-center py-8">Gagal memuat. Coba lagi.</p>'; }
+    }
+    document.getElementById('btnNotif').addEventListener('click', openNotifPanel);
+    document.getElementById('notifClose').addEventListener('click', closeNotifPanel);
+    document.getElementById('notifOverlay').addEventListener('click', closeNotifPanel);
+
+    // ================= DRAWER SOAL =================
+    const drawer = document.getElementById('drawer');
+    const qList = document.getElementById('qList');
+    let questions = [];
+    let curSubject = null, curWeek = null;
+    let inventory = { poin: 0, item_double_score: 0, item_extra_life: 0 };
+    let isDoubleActive = false;
+    let isEvaluatingExtraLife = false;
+    let timeLeft = 0, totalDuration = 0, timerId = null, submitting = false;
+    let curIdx = 0, started = false;
+    let activeBrowserRerender = null;   // utk refresh kartu carousel setelah tugas selesai
+    const forfeitKey = (sub, wk) => `siswa_forfeit_${sub}_${wk}`;
+    const doneKey = (sub, wk) => `${sub}|${wk}`;
+    const getDone = () => { try { return new Set(JSON.parse(localStorage.getItem('siswa_done') || '[]')); } catch { return new Set(); } };
+    const addDone = (sub, wk) => { const s = getDone(); s.add(doneKey(sub, wk)); localStorage.setItem('siswa_done', JSON.stringify([...s])); };
+    const isDone = (sub, wk) => getDone().has(doneKey(sub, wk));
+
+    const shuffle = (a) => { a = a.slice(); for (let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; };
+    const wrapArabic = (t) => t==null?'':String(t).replace(/\p{Script=Arabic}(?:[\p{Script=Arabic}ـ،؛؟\s]*\p{Script=Arabic})?/gu, m => `<span class="ar-text">${m}</span>`);
+    const media = (q) => q.image_url ? `<img src="${esc(q.image_url.trim())}" class="w-full max-h-52 object-contain my-2 rounded-xl border border-[var(--hairline)]" alt="">` : '';
+
+    const LETTERS = ['A','B','C','D','E','F'];
+    function renderQ(q, idx) {
+      const head = `<p class="q-text">${idx+1}. ${wrapArabic(q.question)}</p>`;
+      if (q.type === 'tf') {
+        return `<div class="q-card q-slide question-block" data-id="${q.id}" data-type="tf">${head}${media(q)}
+          <div class="ans-label">Pilih jawaban</div>
+          <div class="grid grid-cols-2 gap-3">
+            <label class="opt" style="flex-direction:column;text-align:center;padding:1rem;"><input type="radio" name="q-${q.id}" value="A" class="hidden"><i class="fa-solid fa-circle-check text-2xl" style="color:#16a34a"></i><span class="opt-text mt-1">BENAR</span></label>
+            <label class="opt" style="flex-direction:column;text-align:center;padding:1rem;"><input type="radio" name="q-${q.id}" value="B" class="hidden"><i class="fa-solid fa-circle-xmark text-2xl" style="color:var(--danger)"></i><span class="opt-text mt-1">SALAH</span></label>
+          </div></div>`;
+      }
+      if (q.type === 'urutan') {
+        const arr = Array.isArray(q.options) ? q.options.slice() : Object.values(q.options);
+        const shuffled = shuffle(arr);
+        const cards = shuffled.map(text => `<div class="urutan-card flex items-center gap-3 bg-white border-2 border-[var(--hairline)] rounded-xl px-3 py-2.5 cursor-grab select-none" data-val="${esc(text)}" style="touch-action:none;"><span class="urutan-pos w-6 h-6 shrink-0 rounded-full flex items-center justify-center font-black text-[11px]" style="background:var(--accent);color:#fff;"></span><span class="flex-1 text-[13px] font-bold">${wrapArabic(text)}</span><i class="fa-solid fa-grip-vertical" style="color:var(--ink-tertiary)"></i></div>`).join('');
+        return `<div class="q-card q-slide question-block" data-id="${q.id}" data-type="urutan">${head}${media(q)}
+          <div class="ans-label">Seret untuk mengurutkan (atas = 1)</div>
+          <div class="sortable-list flex flex-col gap-2" id="sortable-${q.id}">${cards}</div>
+          <input type="hidden" id="ans-${q.id}" value="${JSON.stringify(shuffled).replace(/"/g,'&quot;')}"></div>`;
+      }
+      if (q.type === 'drag') {
+        const slot = () => `<span class="blank-slot" data-q="${q.id}" onclick="window._removeBlank(this)"></span>`;
+        // Blank SELALU terlihat di dalam soal: pakai [BLANK] kalau ada, kalau tidak tempel di akhir.
+        let qText = wrapArabic(q.question || '');
+        qText = /\[BLANK\]/.test(qText) ? qText.replace(/\[BLANK\]/g, () => slot()) : (qText + ' ' + slot());
+        const opts = shuffle(Object.entries(q.options));
+        return `<div class="q-card q-slide question-block" data-id="${q.id}" data-type="drag">
+          <p class="q-text">${idx+1}. ${qText}</p>${media(q)}
+          <div class="ans-label">Ketuk kata untuk mengisi titik-titik</div>
+          <div class="wordbank"><div class="flex flex-wrap gap-2">${opts.map(([k,v]) => `<button type="button" class="word-btn" data-key="${k}" onclick="window._fillBlank('${q.id}',this)">${wrapArabic(v)}</button>`).join('')}</div></div>
+          <input type="hidden" id="ans-${q.id}" value=""></div>`;
+      }
+      // pilgan
+      const opts = shuffle(Object.entries(q.options));
+      return `<div class="q-card q-slide question-block" data-id="${q.id}" data-type="pilgan">${head}${media(q)}
+        <div class="ans-label">Pilih satu jawaban</div>
+        <div class="grid gap-2">${opts.map(([k,v],i) => `<label class="opt"><input type="radio" name="q-${q.id}" value="${k}" class="hidden"><span class="opt-letter">${LETTERS[i]||'•'}</span><span class="opt-text">${wrapArabic(v)}</span></label>`).join('')}</div></div>`;
+    }
+
+    // drag-fill helpers (global utk onclick inline)
+    window._fillBlank = (qId, btn) => {
+      const block = qList.querySelector(`.question-block[data-id="${qId}"]`);
+      const slot = block.querySelector('.blank-slot:empty');
+      if (slot) { slot.textContent = btn.textContent; slot.dataset.key = btn.dataset.key; slot.classList.add('filled'); btn.classList.add('hidden'); syncDrag(qId, block); }
+    };
+    window._removeBlank = (slot) => {
+      if (!slot.textContent) return;
+      const block = slot.closest('.question-block');
+      const btn = block.querySelector(`.word-btn[data-key="${slot.dataset.key}"]`); if (btn) btn.classList.remove('hidden');
+      slot.textContent=''; delete slot.dataset.key; slot.classList.remove('filled'); syncDrag(block.dataset.id, block);
+    };
+    const syncDrag = (qId, block) => {
+      block.querySelector(`#ans-${qId}`).value = Array.from(block.querySelectorAll('.blank-slot')).map(s => s.dataset.key||'').join(',');
+      const ph = block.querySelector('[data-ph]');
+      if (ph) ph.style.display = block.querySelector('.blank-slot.filled') ? 'none' : '';
+    };
+
+    async function openDrawer(subject, week) {
+      // Gate: tugas yang sudah dikerjakan tidak bisa diulang.
+      if (isDone(subject, week)) {
+        await modal({ type:'info', title:'Sudah dikerjakan', message:'Tugas ini sudah kamu kumpulkan. 🎉', confirmText:'OK' });
+        activeBrowserRerender?.();
+        return;
+      }
+      // Gate: kalau sebelumnya keluar di tengah pengerjaan → waktu hangus.
+      // Boleh masuk lagi hanya kalau dapat izin TAMBAHAN WAKTU yang lebih baru & belum lewat.
+      if (await isForfeited(subject, week)) { await offerExtraTime(subject, week); return; }
+
+      curSubject = subject; curWeek = week;
+      isDoubleActive = false; isEvaluatingExtraLife = false; submitting = false; started = false; curIdx = 0;
+      document.getElementById('drawerTitle').textContent = `${SUBJ[subject]||subject} · Pertemuan ${week}`;
+      document.getElementById('drawerTimer').textContent = '--:--';
+      qList.innerHTML = '<p class="text-center text-[var(--ink-secondary)] py-8">Memuat soal…</p>';
+      const lobby = document.getElementById('lobby');
+      lobby.classList.remove('hidden');
+      document.getElementById('drawerFooter').classList.add('hidden');
+      document.getElementById('lowTime').classList.add('hidden');
+      drawer.classList.remove('hidden'); drawer.style.display = 'flex';
+
+      try {
+        const [qRes, sRes, dRes] = await Promise.all([
+          api(`/api/onboarding/questions/${subject}?week=${week}`),
+          api('/api/student/me'),
+          api(`/api/onboarding/pr-locks-detail?subject=${subject}&week=${week}`).catch(()=>({data:{}})),
+        ]);
+        // Acak soal & ambil maksimal 6 (jawaban tiap soal juga diacak di renderQ).
+        questions = shuffle(qRes.data || []).slice(0, 6);
+        const s = sRes.data || {};
+        inventory = { poin: s.poin||0, item_double_score: s.item_double_score||0, item_extra_life: s.item_extra_life||0 };
+        document.getElementById('coinBal').textContent = inventory.poin;
+        refreshDoubleBtn();
+
+        if (!questions.length) {
+          lobby.classList.add('hidden');
+          qList.innerHTML = '<p class="text-center text-[var(--ink-secondary)] py-8">Belum ada soal untuk pertemuan ini.</p>';
+          return;
+        }
+        qList.innerHTML = questions.map(renderQ).join('');
+        initSortables();
+
+        totalDuration = (dRes.data && dRes.data.duration_seconds) || (parseInt(week)===1 ? 105 : 180);
+        timeLeft = totalDuration;
+        const mnt = Math.floor(totalDuration/60), dtk = totalDuration%60;
+        document.getElementById('lobbySub').textContent = `${questions.length} soal · waktu ${mnt>0?mnt+' menit ':''}${dtk>0?dtk+' detik':''}`;
+        // Timer BARU jalan setelah klik "Mulai".
+      } catch (ex) {
+        logError('Gagal memuat soal', ex.message);
+        lobby.classList.add('hidden');
+        qList.innerHTML = `<p class="caption text-center py-8">Gagal memuat soal. Coba lagi ya.</p>`;
+      }
+    }
+
+    document.getElementById('btnStart').addEventListener('click', () => {
+      if (!questions.length) return;
+      document.getElementById('lobby').classList.add('hidden');
+      document.getElementById('drawerFooter').classList.remove('hidden');
+      started = true;
+      curIdx = 0; showSlide(0);
+      startTimer();
+    });
+
+    // ---- Pagination 1 soal ----
+    const slides = () => Array.from(qList.querySelectorAll('.q-slide'));
+    function showSlide(i) {
+      const arr = slides();
+      curIdx = Math.max(0, Math.min(i, arr.length - 1));
+      arr.forEach((el, n) => el.classList.toggle('is-active', n === curIdx));
+      const last = curIdx === arr.length - 1;
+      document.getElementById('qCounter').textContent = `${curIdx + 1}/${arr.length}`;
+      document.getElementById('btnPrev').disabled = curIdx === 0;
+      const next = document.getElementById('btnNext');
+      if (last) next.innerHTML = (isEvaluatingExtraLife ? '<i class="fa-solid fa-paper-plane"></i> Kirim Final' : '<i class="fa-solid fa-paper-plane"></i> Kumpulkan');
+      else next.innerHTML = 'Selanjutnya <i class="fa-solid fa-chevron-right"></i>';
+      qList.scrollTop = 0;
+    }
+    document.getElementById('btnPrev').addEventListener('click', () => { if (curIdx > 0) showSlide(curIdx - 1); });
+    document.getElementById('btnNext').addEventListener('click', () => {
+      const n = slides().length;
+      if (curIdx < n - 1) showSlide(curIdx + 1);
+      else doSubmit(false);
+    });
+
+    // ---- Forfeit (keluar di tengah → waktu hangus) ----
+    async function isForfeited(subject, week) {
+      const ft = localStorage.getItem(forfeitKey(subject, week));
+      if (!ft) return false;
+      // Kalau ada izin (grant) untuk PR ini yg lebih baru dari saat hangus & belum lewat → boleh lanjut.
+      try {
+        const res = await api('/api/student/notifications');
+        const ok = (res.data || []).some(n =>
+          n.subject === subject && String(n.week) === String(week) && !n.expired &&
+          n.responded_at && new Date(n.responded_at).getTime() > Number(ft));
+        if (ok) { localStorage.removeItem(forfeitKey(subject, week)); return false; }
+      } catch (e) {}
+      return true;
+    }
+    async function offerExtraTime(subject, week) {
+      const reason = await modal({ type:'warning', title:'Waktu sudah habis',
+        message:`Kamu tadi keluar saat mengerjakan <b>${SUBJ[subject]||subject} · Pertemuan ${week}</b>, jadi waktunya hangus. Minta <b>tambahan waktu</b> ke Kak Aziz untuk lanjut?`,
+        input:true, placeholder:'Alasan (mis. tadi keluar tak sengaja)', confirmText:'Minta Tambahan Waktu', cancelText:'Nanti' });
+      if (reason === null) return;
+      try {
+        await api('/api/onboarding/pr-extension-request', { method:'POST', body:{ student_id: me.student_id, subject, week, reason, kind:'extra_time' }});
+        toast('Permintaan tambahan waktu terkirim', 'success');
+      } catch (ex) {
+        logError('Gagal minta tambahan waktu', ex.message);
+        modal({ type:'danger', title:'Gagal', message: ex.message || 'Coba lagi ya.', confirmText:'OK' });
+      }
+    }
+
+    function initSortables() {
+      if (typeof Sortable === 'undefined') return;
+      qList.querySelectorAll('.sortable-list').forEach(list => {
+        const block = list.closest('.question-block');
+        new Sortable(list, { animation: 250, delay: 120, delayOnTouchOnly: true, ghostClass:'sortable-ghost',
+          onEnd: () => { block.querySelector('input[type=hidden]').value = JSON.stringify(Array.from(list.children).map(li => li.dataset.val)); renumber(list); }});
+        renumber(list);
+      });
+    }
+    const renumber = (list) => Array.from(list.children).forEach((li,i) => { const p = li.querySelector('.urutan-pos'); if (p) p.textContent = i+1; });
+
+    function startTimer() {
+      clearInterval(timerId);
+      updateTimerUI();
+      timerId = setInterval(() => {
+        timeLeft--;
+        updateTimerUI();
+        document.getElementById('lowTime').classList.toggle('hidden', !(timeLeft <= 20 && timeLeft > 0));
+        if (timeLeft <= 0) { clearInterval(timerId); doSubmit(true); }
+      }, 1000);
+    }
+    function updateTimerUI() {
+      const m = Math.floor(Math.max(0,timeLeft)/60), s = Math.max(0,timeLeft)%60;
+      const el = document.getElementById('drawerTimer');
+      el.textContent = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+      el.style.background = timeLeft <= 20 ? 'rgba(239,68,68,.85)' : 'rgba(255,255,255,.15)';
+    }
+
+    function refreshDoubleBtn() {
+      const b = document.getElementById('btnDouble');
+      if (isDoubleActive) {
+        b.textContent = '✨ Double Nilai AKTIF';
+        b.style.cssText = 'background: var(--accent); color: var(--on-accent); border: 1px solid var(--accent);';
+      } else {
+        b.textContent = inventory.item_double_score > 0 ? '✨ Aktifkan Double Nilai' : '✨ Double Nilai (50)';
+        b.style.cssText = 'background: var(--accent-soft); color: var(--accent-strong); border: 1px solid var(--accent);';
+      }
+    }
+
+    document.getElementById('btnDouble').addEventListener('click', async () => {
+      if (isDoubleActive) return;
+      const b = document.getElementById('btnDouble'); b.disabled = true;
+      try {
+        if (inventory.item_double_score <= 0) {
+          const r = await api('/api/shop/buy', { method:'POST', body:{ student_id: me.student_id, item_type:'item_double_score' }});
+          inventory.poin = r.data.poin; inventory.item_double_score = (r.data.item_double_score ?? 1);
+          document.getElementById('coinBal').textContent = inventory.poin;
+        }
+        isDoubleActive = true;
+        toast('Double Nilai aktif! ✨', 'success');
+      } catch (ex) { logError('Gagal aktifkan Double Nilai', ex.message); }
+      finally { b.disabled = false; refreshDoubleBtn(); }
+    });
+
+    document.getElementById('btnAddTime').addEventListener('click', async () => {
+      const b = document.getElementById('btnAddTime'); b.disabled = true;
+      try {
+        const r = await api('/api/shop/purchase-effect', { method:'POST', body:{ student_id: me.student_id, item_type:'item_tambah_waktu' }});
+        if (r.data && typeof r.data.poin === 'number') { inventory.poin = r.data.poin; document.getElementById('coinBal').textContent = inventory.poin; }
+        timeLeft += 30; updateTimerUI();
+        document.getElementById('lowTime').classList.add('hidden');
+        toast('Waktu ditambah +30 detik ⏳', 'success');
+      } catch (ex) { logError('Gagal tambah waktu', ex.message); }
+      finally { b.disabled = false; }
+    });
+
+    document.getElementById('drawerClose').addEventListener('click', async () => {
+      const warnMsg = started
+        ? 'Kalau keluar sekarang, <b>waktumu hangus</b> dan kamu harus minta tambahan waktu ke Kak Aziz untuk lanjut. Yakin keluar?'
+        : 'Keluar dari halaman soal?';
+      const ok = await modal({ type:'warning', title:'Keluar dari soal?', message: warnMsg, confirmText:'Ya, keluar', cancelText:'Lanjut kerjakan' });
+      if (!ok) return;
+      // Keluar SETELAH mulai = hangus → tandai forfeit (timer hangus, perlu izin tambahan waktu).
+      if (started && !submitting) localStorage.setItem(forfeitKey(curSubject, curWeek), String(Date.now()));
+      started = false;
+      clearInterval(timerId); drawer.classList.add('hidden'); drawer.style.display = 'none';
+    });
+
+    function collectAnswers() {
+      const answers = [];
+      qList.querySelectorAll('.question-block').forEach(block => {
+        const qId = block.dataset.id, type = block.dataset.type;
+        let val;
+        if (type === 'drag') val = block.querySelector(`#ans-${qId}`).value;
+        else if (type === 'urutan') val = JSON.parse(block.querySelector('input[type=hidden]').value || '[]');
+        else val = block.querySelector(`input[name="q-${qId}"]:checked`)?.value || '';
+        answers.push({ question_id: qId, answer: val });
+      });
+      return answers;
+    }
+    function findWrong(answers) {
+      const wrong = [];
+      answers.forEach(a => {
+        const q = questions.find(x => x.id === a.question_id); if (!q) return;
+        let ok;
+        if (q.type === 'urutan') {
+          const as = Array.isArray(a.answer)?JSON.stringify(a.answer):a.answer;
+          const cs = Array.isArray(q.correct_answer)?JSON.stringify(q.correct_answer):q.correct_answer;
+          ok = as === cs;
+        } else ok = String(q.correct_answer).toUpperCase() === String(a.answer).toUpperCase();
+        if (!ok) wrong.push(q.id);
+      });
+      return wrong;
+    }
+
+    async function doSubmit(forced) {
+      if (submitting) return;
+      const answers = collectAnswers();
+
+      // Tawarkan Extra Life: hanya kalau punya item, belum dipakai, ada yg salah, dan belum forced(habis waktu).
+      if (!forced && !isEvaluatingExtraLife && inventory.item_extra_life > 0) {
+        const wrong = findWrong(answers);
+        if (wrong.length > 0) {
+          const fix = await modal({ type:'info', title:'Extra Life aktif! 💖',
+            message:`Ada ${wrong.length} jawaban yang masih bisa kamu perbaiki sebelum dikumpulkan. Perbaiki dulu?`,
+            confirmText:'Perbaiki', cancelText:'Kumpulkan saja' });
+          if (fix) {
+            isEvaluatingExtraLife = true;
+            showSlide(curIdx); // perbarui label tombol jadi "Kirim Final"
+            return;
+          }
+        }
+      }
+
+      submitting = true; clearInterval(timerId);
+      const btn = document.getElementById('btnNext');
+      btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Mengirim…';
+      const timeUsed = Math.max(0, totalDuration - Math.max(0, timeLeft));
+      try {
+        const res = await api('/api/onboarding/submit-grade', { method:'POST', body:{
+          student_id: me.student_id, subject: curSubject, week: curWeek,
+          student_answers: answers,
+          is_double_score: isDoubleActive,
+          is_extra_life_used: isEvaluatingExtraLife,
+          is_pr: true,
+          time_taken: timeUsed,
+          coin_multiplier: 1,
+        }});
+        const d = res.data || {};
+        const score = (typeof d.final_score === 'number') ? d.final_score : (typeof d.raw_score === 'number' ? d.raw_score : 0);
+        started = false;
+        localStorage.removeItem(forfeitKey(curSubject, curWeek)); // selesai → tak ada hangus
+        addDone(curSubject, curWeek);                              // kunci tugas (anti ngerjain ulang)
+        activeBrowserRerender?.();                                 // refresh kartu carousel → "Telah dikerjakan"
+
+        // Simpan selfie login sebagai bukti (image_url di consultations). Non-blocking.
+        const selfie = getSelfieBlob();
+        if (selfie) {
+          const fd = new FormData();
+          fd.append('student_id', me.student_id); fd.append('subject', curSubject); fd.append('week', String(curWeek));
+          fd.append('image', selfie, 'selfie.jpg');
+          api('/api/consultations', { method: 'POST', body: fd }).catch(ex => logWarn('Gagal simpan foto bukti', ex.message));
+        }
+
+        await showResult(score);
+      } catch (ex) {
+        submitting = false; btn.disabled = false; showSlide(curIdx);
+        // Error → console (TIDAK ke toast). Drawer tetap terbuka biar bisa coba lagi.
+        logError('Gagal mengumpulkan tugas', ex.message);
+        modal({ type:'danger', title:'Gagal mengumpulkan', message: ex.message || 'Coba lagi ya.', confirmText:'OK' });
+      }
+    }
+
+    // ---- Rekap nilai + confetti + leaderboard singkat ----
+    function fireConfetti() {
+      if (typeof confetti === 'undefined') return;
+      // Canvas sendiri dgn z-index > modal (biar confetti di atas modal nilai).
+      let cv = document.getElementById('confettiCanvas');
+      if (!cv) {
+        cv = document.createElement('canvas'); cv.id = 'confettiCanvas';
+        cv.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:200;';
+        document.body.appendChild(cv);
+      }
+      const myConfetti = confetti.create(cv, { resize: true, useWorker: true });
+      const end = Date.now() + 1200;
+      (function frame() {
+        myConfetti({ particleCount: 5, angle: 60, spread: 60, origin: { x: 0 } });
+        myConfetti({ particleCount: 5, angle: 120, spread: 60, origin: { x: 1 } });
+        if (Date.now() < end) requestAnimationFrame(frame);
+      })();
+      myConfetti({ particleCount: 120, spread: 90, origin: { y: 0.6 } });
+    }
+
+    async function showResult(score) {
+      fireConfetti();
+      const emoji = score >= 80 ? '🌟' : score >= 60 ? '👍' : '💪';
+      const msg = score >= 80 ? 'Masya Allah, keren banget!' : score >= 60 ? 'Bagus, terus semangat!' : 'Jangan menyerah, coba lagi ya!';
+      const back = document.createElement('div');
+      back.className = 'modal-backdrop modal-info'; back.style.zIndex = '130';
+      back.innerHTML = `
+        <div class="modal-box" style="max-width:340px;">
+          <div class="text-5xl mb-1">${emoji}</div>
+          <div class="modal-title">Tugas Selesai!</div>
+          <div class="caption">${SUBJ[curSubject]||curSubject} · Pertemuan ${curWeek}</div>
+          <div class="my-3">
+            <div class="text-[56px] font-black leading-none" style="color:var(--accent);">${score}</div>
+            <div class="caption">nilai kamu</div>
+          </div>
+          <div class="caption mb-3">${msg}</div>
+          <div id="lbBox" class="text-left">
+            <div class="field-label" style="margin-bottom:0.5rem;">Papan Peringkat</div>
+            <div id="lbList" class="caption text-center py-3">Memuat…</div>
+          </div>
+          <button id="btnResultClose" class="btn btn-primary w-full mt-3">Selesai</button>
+        </div>`;
+      document.body.appendChild(back);
+      requestAnimationFrame(() => back.classList.add('show'));
+
+      // Leaderboard singkat (top 5 + sorot diri sendiri)
+      try {
+        const lb = await api(`/api/onboarding/leaderboard-pr?subject=${curSubject}&week=${curWeek}`);
+        const rows = lb.data || [];
+        const top = rows.slice(0, 5);
+        const myRank = rows.findIndex(r => r.student_id === me.student_id);
+        let html = top.map((r, i) => {
+          const mine = r.student_id === me.student_id;
+          const medal = i===0?'🥇':i===1?'🥈':i===2?'🥉':`${i+1}.`;
+          return `<div class="flex items-center justify-between py-1.5 px-2 rounded-lg ${mine?'':''}" style="${mine?'background:var(--accent-soft);':''}">
+            <span class="text-[13px] font-semibold" style="color:var(--ink)">${medal} ${esc(r.name)}${mine?' (kamu)':''}</span>
+            <span class="text-[13px] font-bold" style="color:var(--accent)">${r.raw_score}</span>
+          </div>`;
+        }).join('');
+        if (myRank >= 5) html += `<div class="caption text-center mt-1">Peringkatmu: #${myRank+1}</div>`;
+        document.getElementById('lbList').innerHTML = html || '<div class="caption text-center py-2">Belum ada data.</div>';
+      } catch (ex) {
+        logWarn('Gagal memuat leaderboard', ex.message);
+        document.getElementById('lbList').innerHTML = '<div class="caption text-center py-2">Leaderboard belum tersedia.</div>';
+      }
+
+      back.querySelector('#btnResultClose').addEventListener('click', () => {
+        back.classList.remove('show'); setTimeout(() => back.remove(), 220);
+        document.getElementById('confettiCanvas')?.remove();
+        drawer.classList.add('hidden'); drawer.style.display = 'none';
+        toast(`Tugas terkumpul! Nilai ${score}`, 'success');
+        botBubble(`✅ <b>${SUBJ[curSubject]||curSubject} Pertemuan ${curWeek}</b> berhasil dikumpulkan!<br>Nilai kamu: <b>${score}</b>. Barakallah 🤲`);
+      });
+    }
+
+    // Sapaan awal
+    botBubble(`Assalamualaikum, <b>${esc(me?.name||'')}</b>! 👋<br>Aku asisten yukNgaji. Mau cek apa hari ini? Pilih tombol di bawah ya.`);
+
+    // Notif izin: cek sekarang, lalu tiap 30 detik (push bubble kalau ada yang baru).
+    pollNotifications();
+    setInterval(pollNotifications, 30000);
+  </script>
+</body>
+</html>

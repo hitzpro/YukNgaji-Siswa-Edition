@@ -1,0 +1,280 @@
+@import "tailwindcss";
+@import "./tokens.css";
+@import "./components.css";
+
+/* =====================================================================
+   yukNgaji Siswa — Base (mengikuti DESIGN.md / FRONTEND guru)
+   ===================================================================== */
+/* ---- Override aksen ke DESIGN.md: Action Blue (#0066cc), bukan hijau ----
+   Primary HANYA dipakai di tombol/border/ikon — TIDAK untuk background. */
+:root {
+  --accent: #0066cc;
+  --accent-strong: #0071e3;
+  --accent-press: #005bb5;
+  --accent-soft: #eaf3ff;
+  --accent-soft-2: #d7e9ff;
+  --accent-ring: rgba(0, 102, 204, 0.28);
+
+  /* ---- Chat tokens (semua terang/netral) ---- */
+  --chat-bg: var(--parchment);   /* latar area chat: off-white Apple */
+  --bubble-in: var(--canvas);    /* bubble masuk: putih */
+  --bubble-out: var(--accent-soft); /* bubble keluar: biru sangat lembut */
+  --header: var(--canvas);       /* header: putih + hairline (bukan warna primary) */
+}
+
+@layer base {
+  *, *::before, *::after { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    font-family: var(--font-sans);
+    background-color: var(--parchment);   /* terang */
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  h1, h2, h3, h4 { letter-spacing: var(--tracking-tight); color: var(--ink); }
+  ::selection { background-color: var(--accent-soft-2); color: var(--ink); }
+}
+
+* { -webkit-tap-highlight-color: transparent; }
+
+/* Header bar konsisten: permukaan putih + garis bawah hairline */
+.appbar {
+  background: var(--canvas);
+  border-bottom: 1px solid var(--hairline);
+}
+
+/* Frame mobile: full di HP, layar-hp di tengah pada desktop */
+.phone {
+  width: 100%;
+  max-width: 480px;
+  height: 100vh;
+  height: 100dvh;            /* tinggi tetap → header & footer fixed, hanya tengah scroll */
+  margin: 0 auto;
+  background: var(--canvas);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+/* Navbar atas & bar bawah: tidak ikut scroll */
+.phone > .appbar,
+.phone > footer,
+.phone > header { flex-shrink: 0; }
+
+.no-scrollbar::-webkit-scrollbar { width: 0; height: 0; display: none; }
+.no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+
+:where(a, button, input, select, textarea):focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px;
+}
+
+/* ---- Bubble chat ---- */
+.bubble {
+  max-width: 86%;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  line-height: 1.45;
+  box-shadow: var(--shadow-soft);
+}
+.bubble-in  { background: var(--bubble-in);  border-radius: var(--r-lg) var(--r-lg) var(--r-lg) 4px; }
+.bubble-out { background: var(--bubble-out); border-radius: var(--r-lg) var(--r-lg) 4px var(--r-lg); }
+
+/* =====================================================================
+   TOAST (info / notif penting) — bukan untuk error/warning
+   ===================================================================== */
+#toastRoot {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  display: flex; flex-direction: column; align-items: center; gap: 0.5rem;
+  padding: 0.75rem 1rem; pointer-events: none;
+}
+.toast {
+  pointer-events: auto;
+  width: 100%; max-width: 440px;
+  display: flex; align-items: center; gap: 0.625rem;
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-pop);
+  padding: 0.8rem 0.95rem;
+  font-size: 0.875rem; font-weight: 700; color: #fff;
+  transform: translateY(-120%); opacity: 0;
+  transition: transform 0.28s cubic-bezier(0.32,0.72,0,1), opacity 0.28s ease;
+}
+.toast.show { transform: translateY(0); opacity: 1; }
+.toast .toast-ic {
+  width: 1.6rem; height: 1.6rem; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+  font-size: 0.85rem; background: rgba(255,255,255,0.22); color: #fff;
+}
+.toast-success { background: #16a34a; }   /* hijau, teks putih */
+.toast-info    { background: var(--info); }
+
+/* =====================================================================
+   MODAL POPUP reusable — 3 state: info / warning / danger
+   ===================================================================== */
+.modal-backdrop {
+  position: fixed; inset: 0; z-index: 120;
+  display: flex; align-items: center; justify-content: center;
+  padding: 1.5rem;
+  background: rgba(0,0,0,0.38);
+  backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+  opacity: 0; transition: opacity 0.2s ease;
+}
+.modal-backdrop.show { opacity: 1; }
+.modal-box {
+  width: 100%; max-width: 360px;
+  background: var(--canvas);
+  border-radius: var(--r-xl);
+  box-shadow: var(--shadow-pop);
+  padding: 1.5rem; text-align: center;
+  transform: scale(0.94) translateY(8px);
+  transition: transform 0.24s cubic-bezier(0.32,0.72,0,1);
+}
+.modal-backdrop.show .modal-box { transform: scale(1) translateY(0); }
+.modal-ic {
+  width: 3.5rem; height: 3.5rem; border-radius: var(--r-lg);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 1.5rem; margin-bottom: 0.875rem;
+}
+.modal-info .modal-ic    { background: var(--info-soft);    color: var(--info); }
+.modal-warning .modal-ic { background: var(--warning-soft); color: var(--warning); }
+.modal-danger .modal-ic  { background: var(--danger-soft);  color: var(--danger); }
+.modal-title { font-size: 1.125rem; font-weight: 700; color: var(--ink); letter-spacing: var(--tracking-snug); }
+.modal-msg   { font-size: 0.875rem; color: var(--ink-secondary); margin-top: 0.375rem; line-height: 1.5; }
+.modal-input { margin-top: 0.875rem; }
+.modal-actions { display: flex; gap: 0.625rem; margin-top: 1.25rem; }
+.modal-actions .btn { flex: 1; }
+.btn-danger { background: var(--danger); color: #fff; border-radius: var(--r-pill); padding: 0.875rem 1.5rem; }
+.btn-warning { background: var(--warning); color: #fff; border-radius: var(--r-pill); padding: 0.875rem 1.5rem; }
+
+/* =====================================================================
+   TYPING INDICATOR (titik 3 saat sistem mengetik)
+   ===================================================================== */
+.typing { display: inline-flex; gap: 4px; align-items: center; padding: 4px 2px; }
+.typing span {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--ink-tertiary);
+  animation: typing-bounce 1.2s infinite ease-in-out;
+}
+.typing span:nth-child(2) { animation-delay: 0.18s; }
+.typing span:nth-child(3) { animation-delay: 0.36s; }
+@keyframes typing-bounce {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+  30% { transform: translateY(-5px); opacity: 1; }
+}
+
+/* =====================================================================
+   TASK CARD (carousel) + border status
+   ===================================================================== */
+.task-card {
+  border: 2px solid var(--hairline);
+  border-radius: var(--r-lg);
+  background: var(--canvas);
+}
+/* Border + latar lembut + sesuai state color (jelas buat anak-anak) */
+.task-card.status-belum { border-color: #16a34a;       background: #f3fcf6; }  /* hijau: belum dikerjakan */
+.task-card.status-telat { border-color: var(--danger); background: #fef5f6; }  /* merah: telat deadline */
+.task-card.status-izin  { border-color: var(--warning);background: #fdf8f0; }  /* kuning: minta izin */
+
+/* ---- Filter select (jelas terlihat bisa di-tap) ---- */
+.select-wrap { position: relative; flex: 1; }
+.select-wrap .select-label {
+  display: block; font-size: 0.625rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: var(--tracking-wide); color: var(--ink-tertiary); margin: 0 0 0.25rem 0.2rem;
+}
+.select-wrap select {
+  width: 100%; appearance: none; -webkit-appearance: none;
+  background: var(--canvas); border: 1.5px solid var(--hairline-strong);
+  border-radius: var(--r-pill); padding: 0.55rem 2rem 0.55rem 0.85rem;
+  font-size: 0.8125rem; font-weight: 700; color: var(--ink); cursor: pointer;
+  box-shadow: var(--shadow-soft);
+}
+.select-wrap select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-ring); }
+.select-wrap::after {
+  content: "\f078"; font-family: "Font Awesome 6 Free"; font-weight: 900;
+  position: absolute; right: 0.85rem; bottom: 0.7rem; color: var(--accent);
+  pointer-events: none; font-size: 0.7rem;
+}
+
+.chip:disabled { opacity: 0.45; pointer-events: none; }
+
+/* =====================================================================
+   SOAL — opsi jawaban bergaya "label" + pagination 1 soal
+   ===================================================================== */
+.q-slide { display: none; }
+.q-slide.is-active { display: block; }
+
+.q-card { background: var(--canvas); border: 1px solid var(--hairline); border-radius: var(--r-lg); padding: 1.25rem; }
+.q-text { font-size: 1rem; font-weight: 700; line-height: 1.7; color: var(--ink); }
+/* Jarak konsisten antar bagian soal (teks → label → jawaban) */
+.q-card > * + * { margin-top: 0.85rem; }
+.ans-label + * { margin-top: 0.5rem; }
+
+.ans-label {
+  display: block; font-size: 0.625rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: var(--tracking-wide); color: var(--ink-tertiary); margin: 0 0 0 0.1rem;
+}
+
+/* Opsi pilihan ganda / benar-salah sebagai label kartu */
+.opt {
+  display: flex; align-items: center; gap: 0.75rem;
+  padding: 0.85rem 0.9rem; border: 2px solid var(--hairline);
+  border-radius: var(--r-md); background: var(--canvas); cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+.opt:active { transform: scale(0.99); }
+.opt:has(:checked) { border-color: var(--accent); background: var(--accent-soft); }
+.opt-letter {
+  width: 1.9rem; height: 1.9rem; flex-shrink: 0; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-weight: 800; font-size: 0.8rem; background: var(--surface-sunken); color: var(--ink-secondary);
+}
+.opt:has(:checked) .opt-letter { background: var(--accent); color: #fff; }
+.opt-text { font-size: 0.9rem; font-weight: 600; color: var(--ink); }
+
+/* Word-bank (tipe isian) */
+.wordbank { background: var(--accent-soft); border-radius: var(--r-md); padding: 0.85rem; }
+.word-btn {
+  padding: 0.5rem 0.85rem; background: var(--canvas); border: 1.5px solid var(--hairline-strong);
+  color: var(--accent-strong); font-size: 0.8125rem; font-weight: 800; border-radius: var(--r-pill);
+  cursor: pointer;
+}
+.word-btn.hidden { display: none; }
+.blank-slot.filled { background: var(--accent-soft); color: var(--accent-strong); border-bottom-style: solid; }
+.blank-slot:empty::before { content: "?"; color: var(--ink-tertiary); }
+.ans-slot-box {
+  min-height: 3rem; border: 2px dashed var(--hairline-strong); border-radius: var(--r-md);
+  background: var(--surface-sunken); display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
+  padding: 0.5rem 0.75rem;
+}
+
+/* Tombol tugas yang sudah dikerjakan (terkunci) */
+.task-done {
+  display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+  width: 100%; margin-top: 0.75rem; padding: 0.65rem; border-radius: var(--r-md);
+  background: var(--surface-sunken); color: var(--ink-tertiary); font-weight: 700; font-size: 0.8125rem;
+}
+
+/* =====================================================================
+   SATPAM (verifikasi wajah) — pengganti satpam logic
+   ===================================================================== */
+.satpam-backdrop {
+  position: fixed; inset: 0; z-index: 150; display: flex; align-items: center; justify-content: center;
+  padding: 1.5rem; background: rgba(10,20,30,0.92); backdrop-filter: blur(4px);
+}
+.satpam-box { width: 100%; max-width: 360px; text-align: center; color: #fff; }
+.satpam-title { font-size: 1.1rem; font-weight: 800; }
+.satpam-title i { color: var(--accent); }
+.satpam-sub { font-size: 0.8125rem; color: rgba(255,255,255,0.7); margin: 0.35rem 0 1rem; }
+/* Frame PERSEGI PANJANG biar wajah kelihatan jelas */
+.satpam-frame {
+  position: relative; width: 260px; height: 340px; margin: 0 auto; border-radius: var(--r-xl);
+  overflow: hidden; background: #000; border: 4px dashed rgba(255,255,255,0.7);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.satpam-frame video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+.satpam-scan {
+  position: absolute; inset: 0; background: rgba(0,102,204,0.4); backdrop-filter: blur(2px);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.5rem;
+  color: #fff; font-weight: 800; font-size: 0.8rem;
+}
+.satpam-msg { font-size: 0.8rem; font-weight: 700; margin-top: 0.85rem; min-height: 34px; }

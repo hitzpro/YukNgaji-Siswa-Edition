@@ -1,0 +1,60 @@
+/* =====================================================================
+   yukNgaji — Design Tokens
+   Berdasarkan DESIGN.md (bahasa desain minimalis ala Apple)
+   Aksen brand: HIJAU (identitas islami dipertahankan)
+   ===================================================================== */
+
+:root {
+  /* ---- Aksen (satu warna interaktif utama) ---- */
+  --accent: #16a34a;          /* green-600 — brand */
+  --accent-strong: #15803d;   /* green-700 — fokus/teks di atas soft */
+  --accent-press: #166534;    /* green-800 — state aktif */
+  --accent-soft: #ecfdf3;     /* latar lembut hijau */
+  --accent-soft-2: #d9f7e3;   /* latar lembut hijau (lebih pekat) */
+  --accent-ring: rgba(22, 163, 74, 0.28);
+  --on-accent: #ffffff;
+
+  /* ---- Tinta / teks ---- */
+  --ink: #1d1d1f;             /* judul & teks utama (near-black, bukan pure black) */
+  --ink-secondary: #6e6e73;   /* teks sekunder */
+  --ink-tertiary: #a1a1a6;    /* teks tersier / placeholder */
+  --ink-disabled: #c7c7cc;
+
+  /* ---- Permukaan ---- */
+  --canvas: #ffffff;          /* permukaan utama / kartu */
+  --parchment: #f5f5f7;       /* latar halaman (off-white khas Apple) */
+  --pearl: #fafafc;           /* tombol/inputan ghost */
+  --surface-sunken: #f0f0f2;  /* field di dalam kartu */
+
+  /* ---- Garis rambut (pengganti shadow tebal) ---- */
+  --hairline: #e5e5ea;        /* border kartu / pembatas */
+  --hairline-strong: #d2d2d7; /* border yang lebih tegas */
+  --divider: #f0f0f2;         /* pembatas sangat lembut */
+
+  /* ---- Status (dipakai sangat hemat) ---- */
+  --danger: #e5484d;
+  --danger-soft: #fdecee;
+  --info: #0066cc;
+  --info-soft: #eaf3ff;
+  --warning: #c97a17;
+  --warning-soft: #fdf3e6;
+
+  /* ---- Radius (skala konsisten, tanpa nilai di antara) ---- */
+  --r-sm: 8px;     /* utility / chip kecil */
+  --r-md: 12px;    /* field & tombol utility */
+  --r-lg: 18px;    /* kartu */
+  --r-xl: 24px;    /* kartu besar / sheet */
+  --r-pill: 9999px;/* CTA utama, search, chip filter */
+
+  /* ---- Elevasi (minimal — Apple hampir tanpa shadow di UI) ---- */
+  --shadow-none: none;
+  --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.04);          /* sangat halus, opsional */
+  --shadow-pop: 0 12px 40px rgba(0, 0, 0, 0.12);          /* hanya modal / floating */
+  --shadow-accent: 0 8px 24px rgba(22, 163, 74, 0.22);    /* hanya CTA utama bila perlu */
+
+  /* ---- Tipografi ---- */
+  --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  --tracking-tight: -0.02em;   /* "Apple tight" untuk heading */
+  --tracking-snug: -0.01em;
+  --tracking-wide: 0.04em;     /* eyebrow/label uppercase */
+}
